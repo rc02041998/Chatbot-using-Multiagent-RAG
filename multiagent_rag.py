@@ -46,14 +46,29 @@ class MultiAgentRAG:
         }
     
     def route_query(self, query: str):
-        if "policy" in query.lower():
-            return "policy"
-        elif "benefit" in query.lower() or "insurance" in query.lower():
-            return "benefits"
-        return "policy"
-    
+        self.classifier_llm = OllamaLLM(model="llama3.2")
+        prompt = ChatPromptTemplate.from_template(
+            "Classify the following user query as either 'policy' or 'benefits':\n\n"
+            "Query: {input}\n\n"
+            "INSTRUCTIONS:"
+            '1. Keep the output strictly "policy" or "benefits" classes'
+            "<output>class name</output>"
+        )
+        result = self.classifier_llm.invoke(prompt.format(input=query))
+        print("CATEGORY-----",result)
+        category = result.strip().lower()
+        if '<output>' in category:
+            category = category.replace('<output>', '')
+        elif '</output>' in category:
+            category = category.replace('</output>', '')
+        category = result.strip().lower()
+        category = 'policy' if 'policy' in category else 'benefits'
+        print("CLEANED CATEGORY-----",category)
+        return "policy" if category not in self.agents else category
+        
     def get_response(self, query: str):
         agent_key = self.route_query(query)
+        print("-----AGENT-----",agent_key)
         return self.agents[agent_key].get_response(query)
     
     def get_agents(self):
